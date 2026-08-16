@@ -29,7 +29,8 @@ pub(super) fn base_url_applies(p: Provider) -> bool {
 }
 
 /// Ordered provider-scoped steps that actually apply to `p`. Steps that would
-/// be a no-op — an API key for local Ollama, a base URL for a cloud provider —
+/// be a no-op — an API key for local Ollama, a Base URL for a provider with no
+/// configurable endpoint —
 /// are absent, so forward/back never lands on one. `Provider` always starts
 /// the list and `Model` always ends it. `ConfirmCommit` is a top-level menu
 /// entry, not part of the provider path, so it never appears here. Navigation

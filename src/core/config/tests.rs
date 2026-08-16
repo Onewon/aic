@@ -59,6 +59,31 @@ fn resolve_base_url_optional_provider_defaults() {
     assert_eq!(s, Source::Default);
 }
 
+/// MiniMax defaults to its global API while allowing a China or proxy URL override.
+#[test]
+fn resolve_base_url_minimax_defaults_and_accepts_override() {
+    let (url, source) = resolve_base_url(None, &Provider::MiniMax);
+    assert_eq!(url.as_deref(), Some(crate::llm::MINIMAX_DEFAULT_BASE_URL));
+    assert_eq!(source, Source::Default);
+
+    let china = "https://api.minimaxi.com/v1";
+    let (url, source) = resolve_base_url(Some(china), &Provider::MiniMax);
+    assert_eq!(url.as_deref(), Some(china));
+    assert_eq!(source, Source::Config);
+}
+
+/// MiniMax requires credentials but can rely on its default model and Base URL.
+#[test]
+fn validate_accepts_minimax_defaults_with_a_key() {
+    let resolved = ResolvedConfig::from_parts(
+        "minimax".into(),
+        "sk-test".into(),
+        Provider::MiniMax.default_model().into(),
+        None,
+    );
+    assert!(resolved.validate().is_ok());
+}
+
 #[test]
 fn validate_rejects_unknown_backend() {
     let config = Config {

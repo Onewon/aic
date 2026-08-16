@@ -38,6 +38,9 @@ pub const DEFAULT_PROVIDER: &str = "openai";
 /// Default endpoint for a locally-run Ollama server.
 pub const OLLAMA_DEFAULT_BASE_URL: &str = "http://localhost:11434";
 
+/// Default endpoint for MiniMax's global OpenAI-compatible API.
+pub const MINIMAX_DEFAULT_BASE_URL: &str = "https://api.minimax.io/v1";
+
 /// Consume `err` into a [`RetryReason`] for the [`retry`] closures: the
 /// retryable shapes from [`classify_retry`], anything else as
 /// [`RetryReason::Fatal`] carrying the error verbatim.
@@ -58,6 +61,7 @@ pub enum Provider {
     OpenRouter,
     Perplexity,
     Together,
+    MiniMax,
     OpenAiCompatible,
 }
 
@@ -66,7 +70,7 @@ pub enum Provider {
 pub enum BaseUrlRequirement {
     /// Cloud provider — rig's built-in endpoint is used; a base URL is ignored.
     None,
-    /// Local provider — base URL is optional and falls back to the default.
+    /// Provider with a configurable base URL that falls back to its default.
     Optional(&'static str),
     /// User-defined endpoint — base URL is mandatory (OpenAI-compatible servers).
     Required,
@@ -180,6 +184,14 @@ const REGISTRY: &[ProviderMeta] = &[
         base_url: BaseUrlRequirement::None,
     },
     ProviderMeta {
+        provider: Provider::MiniMax,
+        name: "minimax",
+        display: "MiniMax",
+        aliases: &[],
+        requires_key: true,
+        base_url: BaseUrlRequirement::Optional(MINIMAX_DEFAULT_BASE_URL),
+    },
+    ProviderMeta {
         provider: Provider::OpenAiCompatible,
         name: "openai-compatible",
         display: "OpenAI-compatible",
@@ -202,6 +214,7 @@ pub const ALL_PROVIDERS: &[Provider] = &[
     Provider::OpenRouter,
     Provider::Perplexity,
     Provider::Together,
+    Provider::MiniMax,
     Provider::OpenAiCompatible,
 ];
 
@@ -297,6 +310,7 @@ impl Provider {
             Self::OpenRouter => "",
             Self::Perplexity => "sonar",
             Self::Together => "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            Self::MiniMax => "MiniMax-M3",
             Self::OpenAiCompatible => "",
         }
     }
@@ -342,6 +356,7 @@ impl Provider {
                 "meta-llama/Llama-4-Scout-17B-16E-Instruct",
                 "deepseek-ai/DeepSeek-V4-Pro",
             ],
+            Self::MiniMax => &["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"],
             Self::OpenAiCompatible => &[],
         }
     }
@@ -470,6 +485,22 @@ macro_rules! with_agent {
                     .build();
                 $body
             }
+            Provider::MiniMax => {
+                let url = $self
+                    .llm
+                    .base_url
+                    .as_deref()
+                    .unwrap_or(MINIMAX_DEFAULT_BASE_URL);
+                let client = rig::providers::minimax::Client::builder()
+                    .api_key(&$self.llm.api_key)
+                    .base_url(url)
+                    .build()?;
+                let $agent = client
+                    .agent(&$self.llm.model)
+                    .preamble(&$self.system_prompt)
+                    .build();
+                $body
+            }
             Provider::Ollama => {
                 let url = $self
                     .llm
@@ -508,7 +539,8 @@ macro_rules! with_agent {
                 let client = rig::providers::openai::Client::builder()
                     .api_key(&api_key)
                     .base_url(base_url)
-                    .build()?;
+                    .build()?
+                    .completions_api();
                 let $agent = client
                     .agent(&$self.llm.model)
                     .preamble(&$self.system_prompt)
@@ -749,7 +781,7 @@ impl LLMAgent {
 /// the generic typed methods (`schema<T>`, `stream_typed_with_reasoning<T>`)
 /// stay monomorphized per backend — generic methods are not object-safe.
 pub enum Backend {
-    /// `rig-core` API path (the 12 providers).
+    /// `rig-core` API path (the 13 providers).
     Rig(LLMAgent),
     /// External CLI-agent, headless/print mode (ADR 0010).
     Cli(CliAgent),

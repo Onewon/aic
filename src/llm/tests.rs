@@ -69,6 +69,7 @@ fn from_name_resolves_canonical_names_and_aliases() {
     assert_eq!(Provider::from_name("google"), Provider::Gemini);
     assert_eq!(Provider::from_name("grok"), Provider::Xai);
     assert_eq!(Provider::from_name("together-ai"), Provider::Together);
+    assert_eq!(Provider::from_name("MiniMax"), Provider::MiniMax);
     assert_eq!(Provider::from_name("custom"), Provider::OpenAiCompatible);
     assert_eq!(
         Provider::from_name("openai-compatible"),
@@ -86,6 +87,7 @@ fn is_known_name_recognizes_canonical_names_and_aliases() {
     assert!(Provider::is_known_name("openai"));
     assert!(Provider::is_known_name("Anthropic"));
     assert!(Provider::is_known_name("claude"));
+    assert!(Provider::is_known_name("minimax"));
     assert!(Provider::is_known_name("openai-compatible"));
     assert!(Provider::is_known_name("custom"));
     // The typo the strict check exists to catch.
@@ -109,12 +111,10 @@ fn default_models_are_refreshed() {
     assert_eq!(Provider::DeepSeek.default_model(), "deepseek-v4-flash");
     assert_eq!(Provider::Ollama.default_model(), "llama3.3");
     assert_eq!(Provider::Mistral.default_model(), "mistral-small-latest");
+    assert_eq!(Provider::MiniMax.default_model(), "MiniMax-M3");
 }
 
-/// AIC-12: the five Phase-1 providers (xAI, Mistral, OpenRouter,
-/// Perplexity, Together) plus the OpenAI-compatible escape hatch must each
-/// resolve a canonical name, an API-key requirement where the provider
-/// needs one, a sensible default model, and a correct base-URL requirement.
+/// Provider metadata added after the original registry remains complete.
 #[test]
 fn new_provider_metadata_is_complete() {
     // Canonical backend values (README tables mirror these).
@@ -123,6 +123,7 @@ fn new_provider_metadata_is_complete() {
     assert_eq!(Provider::OpenRouter.name(), "openrouter");
     assert_eq!(Provider::Perplexity.name(), "perplexity");
     assert_eq!(Provider::Together.name(), "together");
+    assert_eq!(Provider::MiniMax.name(), "minimax");
     assert_eq!(Provider::OpenAiCompatible.name(), "openai-compatible");
 
     // API keys: cloud providers require one; Ollama and the openai-compatible
@@ -132,6 +133,7 @@ fn new_provider_metadata_is_complete() {
     assert!(Provider::OpenRouter.requires_key());
     assert!(Provider::Perplexity.requires_key());
     assert!(Provider::Together.requires_key());
+    assert!(Provider::MiniMax.requires_key());
     assert!(!Provider::OpenAiCompatible.requires_key());
 
     // Defaults: fast, low-cost models; the routers have none by design.
@@ -142,11 +144,12 @@ fn new_provider_metadata_is_complete() {
         Provider::Together.default_model(),
         "meta-llama/Llama-3.3-70B-Instruct-Turbo"
     );
+    assert_eq!(Provider::MiniMax.default_model(), "MiniMax-M3");
     assert!(Provider::OpenRouter.default_model().is_empty());
     assert!(Provider::OpenAiCompatible.default_model().is_empty());
 
-    // Base URL: built-in endpoints for the five; required for the escape
-    // hatch (config `base_url`).
+    // Base URL: MiniMax allows a regional override; the escape hatch requires
+    // an explicit config value.
     assert_eq!(
         Provider::Xai.base_url_requirement(),
         BaseUrlRequirement::None
@@ -168,17 +171,21 @@ fn new_provider_metadata_is_complete() {
         BaseUrlRequirement::None
     );
     assert_eq!(
+        Provider::MiniMax.base_url_requirement(),
+        BaseUrlRequirement::Optional(MINIMAX_DEFAULT_BASE_URL)
+    );
+    assert_eq!(
         Provider::OpenAiCompatible.base_url_requirement(),
         BaseUrlRequirement::Required
     );
 
-    // Setup picker lists: curated models exist for the four with defaults;
-    // OpenRouter and the escape hatch intentionally expose none.
+    // Setup picker lists: OpenRouter and the escape hatch intentionally expose none.
     assert!(!Provider::Xai.models().is_empty());
     assert!(!Provider::Mistral.models().is_empty());
     assert!(Provider::OpenRouter.models().is_empty());
     assert!(!Provider::Perplexity.models().is_empty());
     assert!(!Provider::Together.models().is_empty());
+    assert!(!Provider::MiniMax.models().is_empty());
     assert!(Provider::OpenAiCompatible.models().is_empty());
 }
 

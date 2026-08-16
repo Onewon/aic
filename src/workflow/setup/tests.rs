@@ -67,6 +67,9 @@ fn key_and_base_url_applicability() {
     // Local Ollama: no key, optional base URL.
     assert!(!key_applies(Provider::Ollama));
     assert!(base_url_applies(Provider::Ollama));
+    // MiniMax: required key + optional regional/proxy Base URL.
+    assert!(key_applies(Provider::MiniMax));
+    assert!(base_url_applies(Provider::MiniMax));
     // OpenAI-compatible: optional key (keyless servers) + required base URL.
     assert!(key_applies(Provider::OpenAiCompatible));
     assert!(base_url_applies(Provider::OpenAiCompatible));
@@ -83,6 +86,10 @@ fn applicable_steps_skip_no_op_steps() {
     assert_eq!(
         applicable_steps(Provider::Ollama),
         vec![Step::Provider, Step::BaseUrl, Step::Model]
+    );
+    assert_eq!(
+        applicable_steps(Provider::MiniMax),
+        vec![Step::Provider, Step::ApiKey, Step::BaseUrl, Step::Model]
     );
     // OpenAI-compatible needs both.
     assert_eq!(
@@ -233,6 +240,20 @@ fn provider_submenu_entries_follow_applicability() {
     assert_eq!(
         entries,
         vec![
+            ProviderEntry::BaseUrl,
+            ProviderEntry::Model,
+            ProviderEntry::Verify,
+            ProviderEntry::Done
+        ]
+    );
+
+    // MiniMax: API key + optional Base URL + Model + Verify + Done.
+    let d = draft(Some(Provider::MiniMax), None, None, None);
+    let (entries, _) = provider_submenu_items(&d);
+    assert_eq!(
+        entries,
+        vec![
+            ProviderEntry::ApiKey,
             ProviderEntry::BaseUrl,
             ProviderEntry::Model,
             ProviderEntry::Verify,

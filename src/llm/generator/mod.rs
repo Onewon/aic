@@ -5,9 +5,17 @@ use crate::llm::prompt::PromptConfig;
 
 pub struct Generator {}
 
+/// MiniMax's structured-output validator accepts an omitted field but rejects
+/// Schemars' nullable `type: ["string", "null"]` representation.
+fn optional_body_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generator.subschema_for::<String>()
+}
+
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct CommitOutput {
     pub message: String,
+    #[serde(default)]
+    #[schemars(schema_with = "optional_body_schema")]
     pub body: Option<String>,
 }
 
@@ -176,6 +184,21 @@ impl Generator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Commit bodies are optional but serialize as a single string type for MiniMax.
+    #[test]
+    fn commit_output_schema_uses_an_optional_single_string_body() {
+        let schema = serde_json::to_value(schemars::schema_for!(CommitOutput))
+            .expect("CommitOutput schema serializes");
+        assert_eq!(schema["properties"]["body"]["type"], "string");
+        assert!(
+            !schema["required"]
+                .as_array()
+                .expect("object schema has required fields")
+                .iter()
+                .any(|field| field == "body")
+        );
+    }
 
     fn change(file: &str, hunks: &[usize]) -> BatchChange {
         BatchChange {
